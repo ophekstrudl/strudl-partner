@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabaseBrowser } from '@/lib/supabase/browser'
 
 const P = {
@@ -55,6 +55,25 @@ export default function HomePage() {
   const [form, setForm] = useState({ name: '', email: '', message: '' })
   const [sent, setSent] = useState(false)
   const [sending, setSending] = useState(false)
+
+  // Prefill code + email from the invitation email's URL, then scroll
+  // the register card into view so it's obvious what to do next.
+  // Reads window.location directly rather than useSearchParams to avoid
+  // the CSR-bailout / Suspense-wrapper contortion that would refactor
+  // the whole page.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const codeParam = params.get('code')
+    const emailParam = params.get('email')
+    if (codeParam) setCode(codeParam.toUpperCase())
+    if (emailParam) setEmail(emailParam.trim().toLowerCase())
+    if (codeParam || emailParam) {
+      // Give React a tick to render the new values before scrolling.
+      setTimeout(() => {
+        document.getElementById('home')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }, [])
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
