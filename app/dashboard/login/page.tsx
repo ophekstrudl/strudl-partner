@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { supabaseBrowser } from '@/lib/supabase/browser'
 
 const P = {
   bg: '#EDE8DF',
@@ -11,25 +12,46 @@ const P = {
   muted: '#7A7060',
 }
 
-export default function DashboardLoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+// Magic-link login. No password — the email lands in the barista's inbox
+// and takes them to /dashboard/auth/callback which sets the cookie.
+// cafe_users allowlist is checked after auth (see lib/auth.ts).
 
-  function handleSubmit(e: React.FormEvent) {
+export default function DashboardLoginPage() {
+  const params = useSearchParams()
+  const errorFlag = params.get('error')
+  const initialError =
+    errorFlag === 'expired'
+      ? "That link is no longer valid — usually because a newer one was sent. Request a fresh link below."
+      : errorFlag === 'auth'
+        ? 'Sign-in failed. Try requesting a new link.'
+        : ''
+
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState(initialError)
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!email.trim() || !password.trim()) {
-      setError('Bitte E-Mail und Passwort eingeben.')
+    if (!email.trim()) {
+      setError('Bitte E-Mail eingeben.')
       return
     }
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      sessionStorage.setItem('dashboard_auth', 'true')
-      router.push('/dashboard')
-    }, 600)
+    const supabase = supabaseBrowser()
+    const { error: signInError } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard/auth/callback`,
+      },
+    })
+    setLoading(false)
+    if (signInError) {
+      setError(signInError.message)
+      return
+    }
+    setSent(true)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -52,55 +74,54 @@ export default function DashboardLoginPage() {
         padding: 36, boxShadow: '0 20px 60px rgba(26,24,21,0.10)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <svg width="52" height="52" viewBox="370 75 480 575" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', margin: '0 auto 10px' }}>
-            <g transform="translate(0,720) scale(0.1,-0.1)" fill="#1A1815" stroke="none">
-              <path d="M6180 6374 c-672 -46 -1270 -306 -1737 -758 -233 -225 -403 -455 -541 -734 -150 -303 -231 -592 -263 -946 -15 -156 -6 -579 14 -703 79 -483 266 -907 564 -1278 96 -119 305 -325 423 -417 564 -437 1315 -672 2005 -628 548 34 1020 187 1438 464 125 83 347 262 347 280 0 14 -278 306 -292 306 -5 0 -74 -48 -153 -108 -261 -195 -446 -296 -690 -376 -246 -80 -447 -114 -740 -123 -575 -17 -1134 158 -1597 499 -104 76 -300 268 -383 373 -278 355 -447 769 -486 1198 -16 176 -6 512 20 657 41 226 104 416 213 635 288 579 809 992 1458 1155 198 50 323 64 555 65 230 0 348 -12 559 -56 739 -154 1287 -647 1456 -1309 38 -148 50 -240 56 -430 7 -199 -2 -324 -37 -494 -118 -584 -508 -1003 -1059 -1137 -83 -20 -121 -23 -295 -24 -270 0 -296 9 -212 75 120 96 243 238 328 377 l36 60 99 6 c240 15 465 130 609 310 118 147 158 311 120 490 -47 225 -218 346 -487 347 l-88 0 0 33 c0 50 -39 118 -80 139 -133 67 -497 107 -985 108 -574 0 -1004 -50 -1125 -132 -71 -49 -75 -60 -78 -259 -11 -584 166 -1082 512 -1438 300 -309 693 -494 1145 -540 356 -37 711 30 1031 195 165 85 288 174 433 313 319 308 502 685 567 1172 85 641 -80 1255 -468 1739 -378 471 -994 793 -1674 874 -126 15 -420 27 -518 20z m520 -2094 c343 -23 533 -66 514 -115 -32 -83 -609 -146 -1124 -125 -247 11 -491 33 -566 51 -119 29 -156 72 -89 103 75 36 363 80 580 89 176 8 553 6 685 -3z m947 -386 c49 -24 63 -38 88 -84 25 -47 29 -66 30 -130 0 -65 -4 -84 -33 -142 -39 -79 -128 -168 -219 -216 -68 -36 -212 -77 -225 -64 -5 5 -4 21 2 36 35 94 94 384 115 568 7 67 10 68 112 64 55 -2 85 -10 130 -32z"/>
-              <path d="M6415 5474 c4 -10 15 -51 23 -90 26 -126 7 -173 -155 -384 -127 -164 -123 -298 14 -432 l54 -53 -8 40 c-13 65 -8 158 11 209 10 26 52 89 92 139 41 51 89 121 107 156 27 56 31 75 31 140 0 59 -5 87 -22 122 -27 55 -80 119 -124 151 -29 20 -31 21 -23 2z"/>
-              <path d="M5972 5353 c5 -20 8 -69 6 -107 -4 -84 -23 -126 -108 -235 -142 -184 -148 -312 -21 -451 l41 -45 -7 40 c-24 124 3 208 110 342 36 45 73 104 84 130 24 64 24 175 -1 223 -23 44 -96 140 -106 140 -5 0 -4 -17 2 -37z"/>
-              <path d="M6805 5245 c31 -101 15 -164 -71 -287 -117 -165 -123 -255 -23 -360 l50 -53 -7 56 c-8 79 14 149 77 238 70 100 91 151 91 222 0 73 -26 129 -86 188 l-45 44 14 -48z"/>
-            </g>
-          </svg>
+          <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>☕</div>
           <h1 style={{ fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', marginBottom: 6, color: P.text }}>
             Dashboard
           </h1>
-          <p style={{ color: P.muted, fontSize: '0.9rem' }}>Anmelden, um Ihre Analysen zu sehen</p>
+          <p style={{ color: P.muted, fontSize: '0.9rem' }}>
+            {sent ? 'Check your inbox for the login link.' : 'Sign in to see your analytics'}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: 6, color: P.text }}>
-              E-Mail
-            </label>
-            <input value={email} onChange={e => setEmail(e.target.value)} type="email"
-              placeholder="ihr@kaffeehaus.at" required style={inputStyle}
-              onFocus={e => e.target.style.borderColor = P.text}
-              onBlur={e => e.target.style.borderColor = P.border} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: 6, color: P.text }}>
-              Passwort
-            </label>
-            <input value={password} onChange={e => setPassword(e.target.value)} type="password"
-              placeholder="••••••••" required style={inputStyle}
-              onFocus={e => e.target.style.borderColor = P.text}
-              onBlur={e => e.target.style.borderColor = P.border} />
-          </div>
+        {!sent && (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: 6, color: P.text }}>
+                Email
+              </label>
+              <input value={email} onChange={e => setEmail(e.target.value)} type="email"
+                placeholder="you@cafe.com" required style={inputStyle}
+                onFocus={e => e.target.style.borderColor = P.text}
+                onBlur={e => e.target.style.borderColor = P.border} />
+            </div>
 
-          {error && <p style={{ color: '#c0392b', fontSize: '0.87rem' }}>{error}</p>}
+            {error && <p style={{ color: '#c0392b', fontSize: '0.87rem' }}>{error}</p>}
 
-          <button type="submit" disabled={loading} style={{
-            marginTop: 6, padding: '14px',
-            background: P.text, color: P.shell,
-            border: `1px solid ${P.text}`, borderRadius: 999,
-            fontWeight: 700, fontSize: '0.97rem', opacity: loading ? 0.7 : 1,
-            transition: 'opacity 180ms',
-          }}>
-            {loading ? 'Einen Moment…' : 'Anmelden →'}
-          </button>
-        </form>
+            <button type="submit" disabled={loading} style={{
+              marginTop: 6, padding: '14px',
+              background: P.text, color: P.shell,
+              border: `1px solid ${P.text}`, borderRadius: 999,
+              fontWeight: 700, fontSize: '0.97rem', opacity: loading ? 0.7 : 1,
+              transition: 'opacity 180ms',
+            }}>
+              {loading ? 'Sending link…' : 'Send login link →'}
+            </button>
+          </form>
+        )}
+
+        {sent && (
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            <p style={{ color: P.text, fontSize: '0.95rem', marginBottom: 6 }}>
+              We sent a link to <strong>{email}</strong>.
+            </p>
+            <p style={{ color: P.muted, fontSize: '0.85rem' }}>
+              Click it to sign in. You can close this tab.
+            </p>
+          </div>
+        )}
 
         <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <Link href="/" style={{ color: P.muted, fontSize: '0.88rem' }}>← Zurück zur Website</Link>
+          <Link href="/" style={{ color: P.muted, fontSize: '0.88rem' }}>← Back to website</Link>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { supabaseBrowser } from '@/lib/supabase/browser'
 
 const P = {
   bg: '#EDE8DF',
@@ -44,9 +45,12 @@ const contactInfo = [
 
 export default function HomePage() {
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [cafeName, setCafeName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [regError, setRegError] = useState('')
 
   const [form, setForm] = useState({ name: '', email: '', message: '' })
   const [sent, setSent] = useState(false)
@@ -54,11 +58,38 @@ export default function HomePage() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim() || !code.trim()) return
+    if (!name.trim() || !email.trim() || !code.trim()) return
+    setRegError('')
     setLoading(true)
-    await new Promise(r => setTimeout(r, 800))
-    setSubmitted(true)
-    setLoading(false)
+    try {
+      const r = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: code.trim(), email: email.trim(), name: name.trim() }),
+      })
+      const body = await r.json().catch(() => ({} as Record<string, unknown>))
+      if (!r.ok) {
+        setRegError((body as { message?: string }).message ?? `HTTP ${r.status}`)
+        return
+      }
+      // Registration succeeded — now fire the magic link so they can sign in.
+      // Reuses the existing branded template. sign-in lands at /dashboard.
+      const supabase = supabaseBrowser()
+      const { error: otpErr } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: { emailRedirectTo: `${window.location.origin}/dashboard/auth/callback` },
+      })
+      if (otpErr) {
+        setRegError(`Registered, but email failed: ${otpErr.message}`)
+        return
+      }
+      setCafeName((body as { cafeName?: string }).cafeName ?? 'your café')
+      setSubmitted(true)
+    } catch (err) {
+      setRegError((err as Error).message || 'Network error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function setField(field: string) {
@@ -121,8 +152,11 @@ export default function HomePage() {
                 <h2 style={{ fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.03em', marginBottom: 8, color: P.text }}>
                   Welcome to Strudl.
                 </h2>
-                <p style={{ color: P.muted, fontSize: '0.97rem' }}>
-                  <strong style={{ color: P.text }}>{name}</strong> is now registered. Your dashboard is ready.
+                <p style={{ color: P.muted, fontSize: '0.97rem', marginBottom: 6 }}>
+                  <strong style={{ color: P.text }}>{cafeName}</strong> is registered.
+                </p>
+                <p style={{ color: P.muted, fontSize: '0.92rem' }}>
+                  Check <strong style={{ color: P.text }}>{email}</strong> for your sign-in link.
                 </p>
               </div>
             ) : (
@@ -133,15 +167,29 @@ export default function HomePage() {
                 <p style={{ color: P.muted, fontSize: '0.9rem', marginBottom: 24 }}>Takes less than a minute.</p>
 
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: 6, color: P.text }}>
-                  Café name
+                  Your name
                 </label>
                 <input
                   value={name} onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Café Central"
+                  placeholder="e.g. Jane Doe"
                   required style={{ ...inputStyle, marginBottom: 16 }}
                   onFocus={e => e.target.style.borderColor = P.text}
                   onBlur={e => e.target.style.borderColor = P.border}
                 />
+
+                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: 6, color: P.text }}>
+                  Email
+                </label>
+                <input
+                  type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="you@yourcafé.com"
+                  required style={{ ...inputStyle, marginBottom: 4 }}
+                  onFocus={e => e.target.style.borderColor = P.text}
+                  onBlur={e => e.target.style.borderColor = P.border}
+                />
+                <p style={{ color: P.muted, fontSize: '0.82rem', marginBottom: 16 }}>
+                  Use the email your invitation was sent to.
+                </p>
 
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: 6, color: P.text }}>
                   Partner code
@@ -153,9 +201,15 @@ export default function HomePage() {
                   onFocus={e => e.target.style.borderColor = P.text}
                   onBlur={e => e.target.style.borderColor = P.border}
                 />
-                <p style={{ color: P.muted, fontSize: '0.82rem', marginBottom: 24 }}>
+                <p style={{ color: P.muted, fontSize: '0.82rem', marginBottom: regError ? 16 : 24 }}>
                   You received this code in your invitation email.
                 </p>
+
+                {regError && (
+                  <p style={{ color: '#c0392b', fontSize: '0.87rem', marginBottom: 16 }}>
+                    {regError}
+                  </p>
+                )}
 
                 <button
                   type="submit" disabled={loading}

@@ -35,14 +35,23 @@ export default function DashboardPage() {
   const [darkMode, setDarkMode] = useState(false)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (!sessionStorage.getItem('dashboard_auth')) {
-      router.replace('/dashboard/login')
-    } else {
-      setReady(true)
-      const stored = localStorage.getItem('db_darkMode')
-      if (stored === 'true') setDarkMode(true)
-    }
+    // Middleware bounces unauthed users to /dashboard/login before we
+    // even mount. We're just checking cafe_users linkage here.
+    fetch('/api/me')
+      .then((r) => {
+        if (r.status === 403) {
+          router.replace('/dashboard/unauthorized')
+          return
+        }
+        if (!r.ok) {
+          router.replace('/dashboard/login')
+          return
+        }
+        setReady(true)
+        const stored = localStorage.getItem('db_darkMode')
+        if (stored === 'true') setDarkMode(true)
+      })
+      .catch(() => router.replace('/dashboard/login'))
   }, [router])
 
   useEffect(() => {
@@ -50,8 +59,9 @@ export default function DashboardPage() {
     localStorage.setItem('db_darkMode', String(darkMode))
   }, [darkMode])
 
-  function logout() {
-    sessionStorage.removeItem('dashboard_auth')
+  async function logout() {
+    const { supabaseBrowser } = await import('@/lib/supabase/browser')
+    await supabaseBrowser().auth.signOut()
     router.push('/dashboard/login')
   }
 
@@ -88,7 +98,28 @@ export default function DashboardPage() {
               Last updated: {lastRefresh} · The Corner Brew
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => router.push('/dashboard/scanner')}
+              style={{
+                padding: '10px 18px', background: '#E6C828', color: '#1A1815',
+                border: '1px solid #E6C828', borderRadius: 999, fontWeight: 700,
+                fontSize: '0.88rem', cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(230,200,40,0.35)',
+              }}
+            >
+              ☕ Scan customer
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/redeem')}
+              style={{
+                padding: '10px 18px', background: 'var(--bg)', color: 'var(--text)',
+                border: '1px solid #E6C828', borderRadius: 999, fontWeight: 700,
+                fontSize: '0.88rem', cursor: 'pointer',
+              }}
+            >
+              🎟 Redeem
+            </button>
             <button
               onClick={simulateRefresh}
               style={{

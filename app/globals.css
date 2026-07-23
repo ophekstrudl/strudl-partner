@@ -56,3 +56,20 @@ img { max-width: 100%; display: block; }
   outline-offset: 3px;
   border-radius: 4px;
 }
+
+/* Scanner: fade in the result banner, fade out the camera viewfinder. */
+@keyframes strudl-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.strudl-reveal {
+  animation: strudl-fade-in 260ms ease-out;
+}
+
+@keyframes strudl-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.strudl-fade-out {
+  animation: strudl-fade-out 220ms ease-in forwards;
+}
