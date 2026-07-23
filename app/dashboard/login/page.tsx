@@ -1,14 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabaseBrowser } from '@/lib/supabase/browser'
-
-// useSearchParams() forces a client-side render — Next 14's default
-// static build refuses to prerender this page without either a Suspense
-// wrapper or an explicit dynamic opt-out. A login form is inherently
-// dynamic anyway (auth state, error hints), so opt out.
-export const dynamic = 'force-dynamic'
 
 const P = {
   bg: '#EDE8DF',
@@ -21,8 +15,20 @@ const P = {
 // Magic-link login. No password — the email lands in the barista's inbox
 // and takes them to /dashboard/auth/callback which sets the cookie.
 // cafe_users allowlist is checked after auth (see lib/auth.ts).
-
+//
+// Wrapped in <Suspense> at the page boundary because useSearchParams
+// triggers a CSR bailout that breaks Next 14's static prerender pass.
+// The Suspense fallback renders nothing — the login card typically
+// paints on first frame after hydration anyway.
 export default function DashboardLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const params = useSearchParams()
   const errorFlag = params.get('error')
   const initialError =
