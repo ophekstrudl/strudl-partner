@@ -14,7 +14,7 @@ const P = {
 }
 
 const features = [
-  { icon: '📱', title: 'No hardware needed', desc: 'Works on any smartphone. Guests scan a QR code at the counter — no terminals, no subscriptions, no hassle.' },
+  { icon: '📱', title: 'No hardware needed', desc: 'Works on any smartphone. Guests show their code, you scan it — no terminals, no subscriptions, no hassle.' },
   { icon: '📊', title: 'Real-time analytics', desc: 'Visit frequency, regulars, peak hours — at a glance. Make decisions based on real data, not gut feeling.' },
   { icon: '☕', title: 'Real regulars', desc: 'Replace paper stamp cards with a digital experience. Guests come back more often — and bring friends.' },
 ]
@@ -23,7 +23,7 @@ const services = [
   {
     icon: '🎫',
     title: 'Digital Stamp Cards',
-    desc: 'Replace paper with beautiful digital loyalty cards. Guests collect stamps by scanning a QR code — no app download required.',
+    desc: 'Replace paper with beautiful digital loyalty cards. Guests show their app, you scan to stamp — no app download required for the barista.',
   },
   {
     icon: '📊',
