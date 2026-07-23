@@ -4,6 +4,12 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabaseBrowser } from '@/lib/supabase/browser'
 
+// useSearchParams() forces a client-side render — Next 14's default
+// static build refuses to prerender this page without either a Suspense
+// wrapper or an explicit dynamic opt-out. A login form is inherently
+// dynamic anyway (auth state, error hints), so opt out.
+export const dynamic = 'force-dynamic'
+
 const P = {
   bg: '#EDE8DF',
   shell: '#FDFAF5',
