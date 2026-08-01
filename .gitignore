@@ -3,3 +3,7 @@ node_modules
 out
 tsconfig.tsbuildinfo
 .claude
+.env
+.env.local
+.env.*.local
+.vercel
