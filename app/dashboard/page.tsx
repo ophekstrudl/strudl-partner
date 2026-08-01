@@ -1,20 +1,19 @@
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { periodData, hourlyData, customers, invoices, audienceData, Period } from '@/lib/mockData'
-import { generateTodayStats } from '@/lib/helpers'
+import type { AnalyticsResponse, Period } from '@/lib/analytics-types'
 import Overview  from './components/Overview'
 import Analytics from './components/Analytics'
 import Audience  from './components/Audience'
-import Billing   from './components/Billing'
+import Customers from './components/Customers'
 import Settings  from './components/Settings'
 
-type Tab = 'overview' | 'analytics' | 'insights' | 'billing' | 'settings'
+type Tab = 'overview' | 'analytics' | 'customers' | 'billing' | 'settings'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview',  label: 'Overview'  },
   { id: 'analytics', label: 'Analytics' },
-  { id: 'insights',  label: 'Insights'  },
+  { id: 'customers', label: 'Customers' },
   { id: 'billing',   label: 'Billing'   },
   { id: 'settings',  label: 'Settings'  },
 ]
@@ -25,34 +24,68 @@ const PERIODS: { id: Period; label: string }[] = [
   { id: '12m', label: '12 months' },
 ]
 
+interface Me {
+  email: string
+  cafeId: string
+  cafeName: string
+  role: string
+}
+
 export default function DashboardPage() {
   const router = useRouter()
-  const [ready, setReady]   = useState(false)
-  const [tab, setTab]       = useState<Tab>('overview')
+  const [me, setMe] = useState<Me | null>(null)
+  const [ready, setReady] = useState(false)
+  const [tab, setTab] = useState<Tab>('overview')
   const [period, setPeriod] = useState<Period>('30d')
-  const [tick, setTick]     = useState(0)
-  const [lastRefresh, setLastRefresh] = useState('just now')
   const [darkMode, setDarkMode] = useState(false)
+  const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null)
+  const [analyticsErr, setAnalyticsErr] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState('just now')
 
+  // ── Auth gate + café identity ────────────────────────────────────
   useEffect(() => {
-    // Middleware bounces unauthed users to /dashboard/login before we
-    // even mount. We're just checking cafe_users linkage here.
     fetch('/api/me')
-      .then((r) => {
-        if (r.status === 403) {
-          router.replace('/dashboard/unauthorized')
-          return
-        }
-        if (!r.ok) {
-          router.replace('/dashboard/login')
-          return
-        }
+      .then(async (r) => {
+        if (r.status === 403) { router.replace('/dashboard/unauthorized'); return }
+        if (!r.ok) { router.replace('/dashboard/login'); return }
+        const body = (await r.json()) as Me
+        setMe(body)
         setReady(true)
         const stored = localStorage.getItem('db_darkMode')
         if (stored === 'true') setDarkMode(true)
       })
       .catch(() => router.replace('/dashboard/login'))
   }, [router])
+
+  // ── Analytics fetch on period change (and on demand) ─────────────
+  const fetchAnalytics = useCallback(async (forRefresh = false) => {
+    if (forRefresh) setRefreshing(true)
+    setAnalyticsErr(null)
+    try {
+      const r = await fetch(`/api/analytics?period=${period}`)
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({} as Record<string, unknown>))
+        setAnalyticsErr((body as { message?: string }).message ?? `HTTP ${r.status}`)
+        return
+      }
+      const body = (await r.json()) as AnalyticsResponse
+      setAnalytics(body)
+      if (forRefresh) {
+        const now = new Date()
+        setLastRefresh(`${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`)
+      }
+    } catch (e) {
+      setAnalyticsErr((e as Error).message)
+    } finally {
+      if (forRefresh) setRefreshing(false)
+    }
+  }, [period])
+
+  useEffect(() => {
+    if (!ready) return
+    fetchAnalytics(false)
+  }, [ready, fetchAnalytics])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -65,21 +98,16 @@ export default function DashboardPage() {
     router.push('/dashboard/login')
   }
 
-  function simulateRefresh() {
-    setTick(t => t + 1)
-    const now = new Date()
-    setLastRefresh(`${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`)
-  }
-
-  const todayStats    = useMemo(() => generateTodayStats(tick), [tick])
-  const data          = periodData[period]
-  const monthlyBilled = invoices[0].amount
-  const audience      = audienceData[period]
-
   if (!ready) return null
 
-  // Show period switcher on tabs where data changes with period
-  const showPeriod = tab === 'overview' || tab === 'analytics' || tab === 'insights'
+  const showPeriod = tab === 'overview' || tab === 'analytics'
+
+  // Empty state — new café or hasn't earned any stamps yet.
+  const hasNoData =
+    analytics &&
+    analytics.periodData.every((d) => d.stamps === 0) &&
+    analytics.todayStats.stampsToday === 0 &&
+    analytics.customers.length === 0
 
   return (
     <div style={{ background: 'var(--surface)', minHeight: 'calc(100vh - 72px)' }}>
@@ -95,7 +123,7 @@ export default function DashboardPage() {
               Business Dashboard
             </h1>
             <p style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>
-              Last updated: {lastRefresh} · The Corner Brew
+              Last updated: {lastRefresh} · {me?.cafeName ?? '—'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -121,14 +149,16 @@ export default function DashboardPage() {
               🎟 Redeem
             </button>
             <button
-              onClick={simulateRefresh}
+              onClick={() => fetchAnalytics(true)}
+              disabled={refreshing}
               style={{
                 padding: '10px 18px', background: 'var(--bg)', color: 'var(--text)',
                 border: '1px solid var(--line)', borderRadius: 999, fontWeight: 600,
-                fontSize: '0.88rem', cursor: 'pointer',
+                fontSize: '0.88rem', cursor: refreshing ? 'not-allowed' : 'pointer',
+                opacity: refreshing ? 0.6 : 1,
               }}
             >
-              ↻ Simulate refresh
+              {refreshing ? '↻ Refreshing…' : '↻ Refresh'}
             </button>
             <button
               onClick={logout}
@@ -193,14 +223,92 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Tab content */}
-        {tab === 'overview'  && <Overview  period={period} data={data} todayStats={todayStats} customers={customers} monthlyBilled={monthlyBilled} onTabChange={t => setTab(t as Tab)} />}
-        {tab === 'analytics' && <Analytics period={period} data={data} hourlyData={hourlyData} todayStats={todayStats} customers={customers} />}
-        {tab === 'insights'  && <Audience  period={period} data={audience} />}
-        {tab === 'billing'   && <Billing   invoices={invoices} />}
-        {tab === 'settings'  && <Settings darkMode={darkMode} onDarkModeChange={setDarkMode} />}
+        {/* Error / loading / content */}
+        {analyticsErr && (
+          <div style={{
+            background: 'rgba(192,57,43,0.08)', border: '1px solid rgba(192,57,43,0.3)',
+            borderRadius: 20, padding: 20, marginBottom: 20, color: '#c0392b', fontSize: '0.95rem',
+          }}>
+            Couldn't load analytics: {analyticsErr}
+          </div>
+        )}
+
+        {!analytics && !analyticsErr && (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+            Loading…
+          </div>
+        )}
+
+        {analytics && hasNoData && (
+          <EmptyState cafeName={me?.cafeName ?? 'your café'} />
+        )}
+
+        {analytics && !hasNoData && tab === 'overview' && (
+          <Overview
+            period={period}
+            data={analytics.periodData}
+            todayStats={analytics.todayStats}
+            customers={analytics.customers}
+            monthlyBilled={analytics.periodData.reduce((s, d) => s + d.revenue, 0)}
+            onTabChange={(t) => setTab(t as Tab)}
+          />
+        )}
+        {analytics && !hasNoData && tab === 'analytics' && (
+          <Analytics
+            period={period}
+            data={analytics.periodData}
+            hourlyData={analytics.hourlyData}
+            todayStats={analytics.todayStats}
+            customers={analytics.customers}
+          />
+        )}
+        {analytics && !hasNoData && tab === 'customers' && (
+          <Customers customers={analytics.customers} />
+        )}
+        {tab === 'billing' && <BillingPlaceholder />}
+        {tab === 'settings' && <Settings darkMode={darkMode} onDarkModeChange={setDarkMode} />}
 
       </div>
+    </div>
+  )
+}
+
+// Empty state — shown when the café has zero stamps in the window.
+// Points the owner at the scanner so they can start seeing data.
+function EmptyState({ cafeName }: { cafeName: string }) {
+  return (
+    <div style={{
+      background: 'var(--bg)', border: '1px solid var(--line)',
+      borderRadius: 24, padding: 48, textAlign: 'center',
+    }}>
+      <div style={{ fontSize: '3rem', marginBottom: 12 }}>☕</div>
+      <h2 style={{ fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: 8 }}>
+        No activity yet
+      </h2>
+      <p style={{ color: 'var(--muted)', fontSize: '0.95rem', maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.6 }}>
+        Once customers start stamping at <strong style={{ color: 'var(--text)' }}>{cafeName}</strong>,
+        analytics show up here — stamps by day, peak hours, top regulars, and more.
+      </p>
+    </div>
+  )
+}
+
+// Billing tab placeholder — the real billing engine isn't built yet.
+// Replace when we ship it. Same visual shell as other tab cards.
+function BillingPlaceholder() {
+  return (
+    <div style={{
+      background: 'var(--bg)', border: '1px solid var(--line)',
+      borderRadius: 24, padding: 48, textAlign: 'center',
+    }}>
+      <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🧾</div>
+      <h2 style={{ fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: 8 }}>
+        Billing arrives with your first invoice
+      </h2>
+      <p style={{ color: 'var(--muted)', fontSize: '0.95rem', maxWidth: 440, margin: '0 auto', lineHeight: 1.6 }}>
+        Strudl is free while we onboard our first partners. Once billing goes live, you'll see monthly
+        invoices, projected usage, and payment history here.
+      </p>
     </div>
   )
 }

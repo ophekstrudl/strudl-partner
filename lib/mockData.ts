@@ -119,7 +119,9 @@ export interface HourlyPoint {
 }
 
 export interface Customer {
-  id: number
+  // string because real customer ids are UUIDs (public.users.id).
+  // The mock demo rows below use string ids too now for consistency.
+  id: string
   name: string
   email: string
   visits: number
@@ -192,18 +194,18 @@ export const hourlyData: HourlyPoint[] = [
 ]
 
 export const customers: Customer[] = [
-  { id:  1, name: 'Emma Wilson',   email: 'emma@example.com',   visits: 47, stamps: 312, lastVisit: '2024-12-15', cafe: 'The Corner Brew', status: 'active'  },
-  { id:  2, name: 'James Park',    email: 'james@example.com',  visits: 31, stamps: 198, lastVisit: '2024-12-15', cafe: 'Bean & Gone',      status: 'active'  },
-  { id:  3, name: 'Sarah Chen',    email: 'sarah@example.com',  visits: 52, stamps: 341, lastVisit: '2024-12-14', cafe: 'The Corner Brew', status: 'active'  },
-  { id:  4, name: 'Oliver Smith',  email: 'oliver@example.com', visits: 18, stamps: 112, lastVisit: '2024-12-14', cafe: 'Grounds Up',       status: 'dormant' },
-  { id:  5, name: 'Aisha Patel',   email: 'aisha@example.com',  visits: 39, stamps: 267, lastVisit: '2024-12-13', cafe: 'Morning Pages',    status: 'active'  },
-  { id:  6, name: 'Lucas Müller',  email: 'lucas@example.com',  visits: 24, stamps: 156, lastVisit: '2024-12-13', cafe: 'Bean & Gone',      status: 'active'  },
-  { id:  7, name: 'Priya Nair',    email: 'priya@example.com',  visits:  8, stamps:  44, lastVisit: '2024-12-12', cafe: 'Grounds Up',       status: 'dormant' },
-  { id:  8, name: 'Tom Baker',     email: 'tom@example.com',    visits: 61, stamps: 418, lastVisit: '2024-12-12', cafe: 'The Corner Brew', status: 'active'  },
-  { id:  9, name: 'Mei Zhang',     email: 'mei@example.com',    visits: 29, stamps: 187, lastVisit: '2024-12-11', cafe: 'Morning Pages',    status: 'active'  },
-  { id: 10, name: 'Daniel Roy',    email: 'daniel@example.com', visits: 13, stamps:  79, lastVisit: '2024-12-11', cafe: 'Grounds Up',       status: 'dormant' },
-  { id: 11, name: 'Chloe Martin',  email: 'chloe@example.com',  visits: 44, stamps: 289, lastVisit: '2024-12-10', cafe: 'Morning Pages',    status: 'active'  },
-  { id: 12, name: "Ryan O'Brien",  email: 'ryan@example.com',   visits: 35, stamps: 224, lastVisit: '2024-12-10', cafe: 'Bean & Gone',      status: 'active'  },
+  { id: '1', name: 'Emma Wilson',   email: 'emma@example.com',   visits: 47, stamps: 312, lastVisit: '2024-12-15', cafe: 'The Corner Brew', status: 'active'  },
+  { id: '2', name: 'James Park',    email: 'james@example.com',  visits: 31, stamps: 198, lastVisit: '2024-12-15', cafe: 'Bean & Gone',      status: 'active'  },
+  { id: '3', name: 'Sarah Chen',    email: 'sarah@example.com',  visits: 52, stamps: 341, lastVisit: '2024-12-14', cafe: 'The Corner Brew', status: 'active'  },
+  { id: '4', name: 'Oliver Smith',  email: 'oliver@example.com', visits: 18, stamps: 112, lastVisit: '2024-12-14', cafe: 'Grounds Up',       status: 'dormant' },
+  { id: '5', name: 'Aisha Patel',   email: 'aisha@example.com',  visits: 39, stamps: 267, lastVisit: '2024-12-13', cafe: 'Morning Pages',    status: 'active'  },
+  { id: '6', name: 'Lucas Müller',  email: 'lucas@example.com',  visits: 24, stamps: 156, lastVisit: '2024-12-13', cafe: 'Bean & Gone',      status: 'active'  },
+  { id: '7', name: 'Priya Nair',    email: 'priya@example.com',  visits:  8, stamps:  44, lastVisit: '2024-12-12', cafe: 'Grounds Up',       status: 'dormant' },
+  { id: '8', name: 'Tom Baker',     email: 'tom@example.com',    visits: 61, stamps: 418, lastVisit: '2024-12-12', cafe: 'The Corner Brew', status: 'active'  },
+  { id: '9', name: 'Mei Zhang',     email: 'mei@example.com',    visits: 29, stamps: 187, lastVisit: '2024-12-11', cafe: 'Morning Pages',    status: 'active'  },
+  { id: '10', name: 'Daniel Roy',    email: 'daniel@example.com', visits: 13, stamps:  79, lastVisit: '2024-12-11', cafe: 'Grounds Up',       status: 'dormant' },
+  { id: '11', name: 'Chloe Martin',  email: 'chloe@example.com',  visits: 44, stamps: 289, lastVisit: '2024-12-10', cafe: 'Morning Pages',    status: 'active'  },
+  { id: '12', name: "Ryan O'Brien",  email: 'ryan@example.com',   visits: 35, stamps: 224, lastVisit: '2024-12-10', cafe: 'Bean & Gone',      status: 'active'  },
 ]
 
 export const invoices: Invoice[] = [
@@ -387,14 +389,14 @@ export function getPeriodCities(period: Period): GlobalCity[] {
 // Legacy export — still referenced by existing files
 export const monthlyData = periodData['12m'].map(d => ({ month: d.label, revenue: d.revenue, users: d.users }))
 export const transactions = [
-  { id: 1,  date: '2024-12-15', cafe: 'The Corner Brew', customer: 'Emma Wilson',  amount: '€4.80', status: 'Completed' },
-  { id: 2,  date: '2024-12-15', cafe: 'Bean & Gone',     customer: 'James Park',   amount: '€3.50', status: 'Completed' },
-  { id: 3,  date: '2024-12-14', cafe: 'The Corner Brew', customer: 'Sarah Chen',   amount: '€5.20', status: 'Completed' },
-  { id: 4,  date: '2024-12-14', cafe: 'Grounds Up',      customer: 'Oliver Smith', amount: '€2.90', status: 'Redeemed'  },
-  { id: 5,  date: '2024-12-13', cafe: 'Morning Pages',   customer: 'Aisha Patel',  amount: '€4.10', status: 'Completed' },
-  { id: 6,  date: '2024-12-13', cafe: 'Bean & Gone',     customer: 'Lucas Müller', amount: '€6.40', status: 'Completed' },
-  { id: 7,  date: '2024-12-12', cafe: 'Grounds Up',      customer: 'Priya Nair',   amount: '€3.80', status: 'Pending'   },
-  { id: 8,  date: '2024-12-12', cafe: 'The Corner Brew', customer: 'Tom Baker',    amount: '€4.50', status: 'Completed' },
-  { id: 9,  date: '2024-12-11', cafe: 'Morning Pages',   customer: 'Mei Zhang',    amount: '€5.00', status: 'Redeemed'  },
-  { id: 10, date: '2024-12-11', cafe: 'Grounds Up',      customer: 'Daniel Roy',   amount: '€3.20', status: 'Completed' },
+  { id: '1',  date: '2024-12-15', cafe: 'The Corner Brew', customer: 'Emma Wilson',  amount: '€4.80', status: 'Completed' },
+  { id: '2',  date: '2024-12-15', cafe: 'Bean & Gone',     customer: 'James Park',   amount: '€3.50', status: 'Completed' },
+  { id: '3',  date: '2024-12-14', cafe: 'The Corner Brew', customer: 'Sarah Chen',   amount: '€5.20', status: 'Completed' },
+  { id: '4',  date: '2024-12-14', cafe: 'Grounds Up',      customer: 'Oliver Smith', amount: '€2.90', status: 'Redeemed'  },
+  { id: '5',  date: '2024-12-13', cafe: 'Morning Pages',   customer: 'Aisha Patel',  amount: '€4.10', status: 'Completed' },
+  { id: '6',  date: '2024-12-13', cafe: 'Bean & Gone',     customer: 'Lucas Müller', amount: '€6.40', status: 'Completed' },
+  { id: '7',  date: '2024-12-12', cafe: 'Grounds Up',      customer: 'Priya Nair',   amount: '€3.80', status: 'Pending'   },
+  { id: '8',  date: '2024-12-12', cafe: 'The Corner Brew', customer: 'Tom Baker',    amount: '€4.50', status: 'Completed' },
+  { id: '9',  date: '2024-12-11', cafe: 'Morning Pages',   customer: 'Mei Zhang',    amount: '€5.00', status: 'Redeemed'  },
+  { id: '10', date: '2024-12-11', cafe: 'Grounds Up',      customer: 'Daniel Roy',   amount: '€3.20', status: 'Completed' },
 ]
