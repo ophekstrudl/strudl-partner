@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Strudl deploy-attribution hook.
+#
+# Strudl's Vercel project is on the Hobby plan, which gates deploys on the
+# commit author email. Every commit on `main` must be authored as
+# ophek.strudl@gmail.com or Vercel rejects the deploy (TEAM_ACCESS_REQUIRED).
+#
+# To keep that gate green while still crediting other contributors, we author
+# locally as Ophek and add a Co-authored-by trailer for the real contributor.
+# This hook adds that trailer automatically.
+#
+# One-time setup per clone:
+#   ./scripts/install-strudl-deploy-hooks.sh
+#
+# Or manually:
+#   git config core.hooksPath        .githooks
+#   git config strudl.contributorName  "Yoav Barney"
+#   git config strudl.contributorEmail "yoav.barney@gmail.com"
+#
+# If either strudl.contributor* key is unset, the hook is a no-op — safe to
+# leave installed in Ophek's own clones.
+
+set -eu
+
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="${2:-}"
+
+case "$COMMIT_SOURCE" in
+  merge|squash) exit 0 ;;
+esac
+
+NAME="$(git config --get strudl.contributorName  || true)"
+EMAIL="$(git config --get strudl.contributorEmail || true)"
+
+if [ -z "$NAME" ] || [ -z "$EMAIL" ]; then
+  exit 0
+fi
+
+TRAILER="Co-authored-by: $NAME <$EMAIL>"
+
+if grep -qiF "$TRAILER" "$COMMIT_MSG_FILE"; then
+  exit 0
+fi
+
+TMP="$(mktemp)"
+git interpret-trailers \
+  --trailer "Co-authored-by: $NAME <$EMAIL>" \
+  --if-exists addIfDifferent \
+  < "$COMMIT_MSG_FILE" > "$TMP"
+mv "$TMP" "$COMMIT_MSG_FILE"
